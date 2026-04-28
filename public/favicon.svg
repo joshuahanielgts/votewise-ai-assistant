@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a365d"/>
+      <stop offset="100%" stop-color="#2a4a7f"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background rounded square -->
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+
+  <!-- Ballot box body -->
+  <rect x="12" y="28" width="40" height="26" rx="4" fill="none" stroke="#ffffff" stroke-width="2.5"/>
+
+  <!-- Ballot slot -->
+  <rect x="22" y="23" width="20" height="5" rx="2.5" fill="#e67e22"/>
+
+  <!-- Checkmark on ballot paper -->
+  <rect x="20" y="11" width="24" height="18" rx="3" fill="#ffffff" opacity="0.95"/>
+  <polyline points="24,20 28,25 36,15" fill="none" stroke="#e67e22" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Paper going into slot (bottom portion of ballot) -->
+  <rect x="27" y="26" width="10" height="6" rx="0" fill="#f0f0f0" opacity="0.8"/>
+
+  <!-- Stars / decorative dots -->
+  <circle cx="10" cy="10" r="2" fill="#e67e22" opacity="0.6"/>
+  <circle cx="54" cy="10" r="2" fill="#e67e22" opacity="0.6"/>
+  <circle cx="10" cy="54" r="2" fill="#e67e22" opacity="0.4"/>
+  <circle cx="54" cy="54" r="2" fill="#e67e22" opacity="0.4"/>
+</svg>
