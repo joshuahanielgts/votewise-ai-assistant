@@ -42,7 +42,7 @@ const WELCOME: Message = {
   id: "welcome",
   role: "assistant",
   content:
-    "Hi! I'm **VoteWise**. Ask me anything about elections, voting timelines, or how democracy works! 🗳️",
+    "Welcome to **VoteWise**. I'm here to help you navigate the democratic process with clarity and confidence. What would you like to explore today? 🗳️",
   createdAt: Date.now(),
 };
 
@@ -130,7 +130,11 @@ export function Chat() {
     const res = await fetch(`${API_BASE}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: text, session_id: sessionId }),
+      body: JSON.stringify({
+        message: text,
+        session_id: sessionId,
+        history: messages.map(m => ({ role: m.role, content: m.content }))
+      }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = (await res.json()) as { reply: string };
@@ -171,7 +175,7 @@ export function Chat() {
       console.error(err);
       setLastFailed(trimmed);
       setEditDraft(trimmed);
-      toast.error("Hmm, something went wrong. Please try again!");
+      toast.error("I'm having trouble connecting right now. Please ensure the backend server is running and try again!");
     } finally {
       setLoading(false);
     }
@@ -544,7 +548,7 @@ export function Chat() {
         {/* Input */}
         <form
           onSubmit={handleSubmit}
-          className="flex items-center gap-2 border-t border-border/60 bg-card p-3 sm:p-4"
+          className="flex items-center gap-2 border-t border-border/60 glass-morphism p-3 sm:p-4"
         >
           <input
             type="text"
