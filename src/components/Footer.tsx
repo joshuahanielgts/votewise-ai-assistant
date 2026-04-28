@@ -1,4 +1,5 @@
 import { Sparkles } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 
 export function Footer() {
   return (
@@ -9,9 +10,9 @@ export function Footer() {
           Powered by Google Cloud & Gemini AI
         </div>
         <nav className="flex items-center gap-6 text-sm text-muted-foreground" aria-label="Footer">
-          <a href="#" className="hover:text-foreground">About</a>
-          <a href="#" className="hover:text-foreground">Accessibility</a>
-          <a href="#" className="hover:text-foreground">Privacy</a>
+          <Link to="/about" className="hover:text-foreground">About</Link>
+          <Link to="/accessibility" className="hover:text-foreground">Accessibility</Link>
+          <Link to="/privacy" className="hover:text-foreground">Privacy</Link>
         </nav>
       </div>
       <div className="border-t border-border/60 py-4 text-center text-xs text-muted-foreground">
