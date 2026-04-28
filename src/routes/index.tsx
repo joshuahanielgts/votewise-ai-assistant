@@ -1,26 +1,55 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { lazy, Suspense } from "react";
+import { Navbar } from "@/components/Navbar";
+import { Hero } from "@/components/Hero";
+import { Chat } from "@/components/Chat";
+import { Footer } from "@/components/Footer";
+
+const Timeline = lazy(() => import("@/components/Timeline"));
+const FAQ = lazy(() => import("@/components/FAQ"));
 
 export const Route = createFileRoute("/")({
   component: Index,
+  head: () => ({
+    meta: [
+      { title: "VoteWise — Understand Your Vote" },
+      {
+        name: "description",
+        content:
+          "AI-powered election education. Ask about voting, registration, timelines, and how democracy works.",
+      },
+      { property: "og:title", content: "VoteWise — Understand Your Vote" },
+      {
+        property: "og:description",
+        content: "Your AI guide to elections, voting, and democracy.",
+      },
+    ],
+  }),
 });
 
-// IMPORTANT: Replace this placeholder. For sites with multiple pages (About, Services, Contact, etc.),
-// create separate route files (about.tsx, services.tsx, contact.tsx) — don't put all pages in this file.
-function PlaceholderIndex() {
+function SectionFallback() {
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
+    <div className="flex h-64 items-center justify-center text-muted-foreground">
+      <span className="h-3 w-3 animate-pulse rounded-full bg-primary" />
     </div>
   );
 }
 
 function Index() {
-  return <PlaceholderIndex />;
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      <Navbar />
+      <main>
+        <Hero />
+        <Chat />
+        <Suspense fallback={<SectionFallback />}>
+          <Timeline />
+        </Suspense>
+        <Suspense fallback={<SectionFallback />}>
+          <FAQ />
+        </Suspense>
+      </main>
+      <Footer />
+    </div>
+  );
 }
