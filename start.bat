@@ -7,7 +7,7 @@ echo ===========================================
 
 echo.
 echo [1/2] Starting FastAPI Backend (Port 8000)...
-start "VoteWise Backend" cmd /k "cd backend && uvicorn main:app --reload"
+start "VoteWise Backend" cmd /k "cd backend && if not exist venv (python -m venv venv) && call venv\Scripts\activate.bat && pip install -r requirements.txt && python -m uvicorn main:app --reload"
 
 echo.
 echo [2/2] Starting React Frontend...
