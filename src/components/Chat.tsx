@@ -1,20 +1,50 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import ReactMarkdown from "react-markdown";
-import { Send, Vote, User, RefreshCw, Copy, Check, FileDown } from "lucide-react";
+import {
+  Send, Vote, User, RefreshCw, Copy, Check, FileDown,
+  Settings2, Pencil, Sparkles, X,
+} from "lucide-react";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader,
+  DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 type Role = "user" | "assistant";
 interface Message {
   id: string;
   role: Role;
   content: string;
+  /** id of the user message that produced this assistant reply (for regenerate) */
+  promptId?: string;
+  createdAt: number;
   failed?: boolean;
 }
+
+interface PdfOptions {
+  includeSessionId: boolean;
+  includeTimestamps: boolean;
+  keepMarkdown: boolean;
+}
+
+const STORAGE_KEY = "votewise:chat";
+const SESSION_KEY = "votewise:session_id";
+
+const WELCOME: Message = {
+  id: "welcome",
+  role: "assistant",
+  content:
+    "Hi! I'm **VoteWise**. Ask me anything about elections, voting timelines, or how democracy works! 🗳️",
+  createdAt: Date.now(),
+};
 
 const QUICK_PROMPTS = [
   "How do I register to vote?",
@@ -29,24 +59,83 @@ const API_BASE =
   (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "http://localhost:8000";
 
 export function Chat() {
-  const sessionId = useMemo(() => uuidv4(), []);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "welcome",
-      role: "assistant",
-      content:
-        "Hi! I'm **VoteWise**. Ask me anything about elections, voting timelines, or how democracy works! 🗳️",
-    },
-  ]);
+  // Persistent session id so reloads restore the same conversation
+  const sessionId = useMemo(() => {
+    if (typeof window === "undefined") return uuidv4();
+    const existing = window.localStorage.getItem(SESSION_KEY);
+    if (existing) return existing;
+    const fresh = uuidv4();
+    window.localStorage.setItem(SESSION_KEY, fresh);
+    return fresh;
+  }, []);
+
+  const [messages, setMessages] = useState<Message[]>(() => {
+    if (typeof window === "undefined") return [WELCOME];
+    try {
+      const raw = window.localStorage.getItem(`${STORAGE_KEY}:${sessionId}`);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Message[];
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {
+      /* ignore */
+    }
+    return [WELCOME];
+  });
+
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [lastFailed, setLastFailed] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [editDraft, setEditDraft] = useState("");
+  const [copyWithNotes, setCopyWithNotes] = useState(false);
+  const [pdfOpen, setPdfOpen] = useState(false);
+  const [pdfOpts, setPdfOpts] = useState<PdfOptions>({
+    includeSessionId: true,
+    includeTimestamps: true,
+    keepMarkdown: false,
+  });
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastSendRef = useRef(0);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, loading]);
+
+  // Persist chat history to localStorage scoped by session_id
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        `${STORAGE_KEY}:${sessionId}`,
+        JSON.stringify(messages),
+      );
+    } catch {
+      /* ignore quota */
+    }
+  }, [messages, sessionId]);
+
+  const clearHistory = () => {
+    setMessages([WELCOME]);
+    setLastFailed(null);
+    setEditing(false);
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(`${STORAGE_KEY}:${sessionId}`);
+    }
+    toast.success("Chat history cleared");
+  };
+
+  const callApi = async (text: string): Promise<string> => {
+    const res = await fetch(`${API_BASE}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text, session_id: sessionId }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = (await res.json()) as { reply: string };
+    return data.reply ?? "(no response)";
+  };
 
   const sendMessage = async (text: string, opts?: { isRetry?: boolean }) => {
     const trimmed = text.trim();
@@ -55,29 +144,33 @@ export function Chat() {
     if (now - lastSendRef.current < 300) return;
     lastSendRef.current = now;
 
-    if (!opts?.isRetry) {
-      const userMsg: Message = { id: uuidv4(), role: "user", content: trimmed };
+    let promptId: string;
+    if (opts?.isRetry) {
+      // Re-use the most recent user message id if available
+      const lastUser = [...messages].reverse().find((m) => m.role === "user");
+      promptId = lastUser?.id ?? uuidv4();
+    } else {
+      promptId = uuidv4();
+      const userMsg: Message = {
+        id: promptId, role: "user", content: trimmed, createdAt: Date.now(),
+      };
       setMessages((m) => [...m, userMsg]);
       setInput("");
     }
     setLastFailed(null);
+    setEditing(false);
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE}/api/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: trimmed, session_id: sessionId }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as { reply: string };
+      const reply = await callApi(trimmed);
       setMessages((m) => [
         ...m,
-        { id: uuidv4(), role: "assistant", content: data.reply ?? "(no response)" },
+        { id: uuidv4(), role: "assistant", content: reply, promptId, createdAt: Date.now() },
       ]);
     } catch (err) {
       console.error(err);
       setLastFailed(trimmed);
+      setEditDraft(trimmed);
       toast.error("Hmm, something went wrong. Please try again!");
     } finally {
       setLoading(false);
@@ -86,6 +179,79 @@ export function Chat() {
 
   const retryLast = () => {
     if (lastFailed) sendMessage(lastFailed, { isRetry: true });
+  };
+
+  const startEditLast = () => {
+    const text = lastFailed ??
+      [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
+    setEditDraft(text);
+    setEditing(true);
+  };
+
+  const submitEdit = () => {
+    const text = editDraft.trim();
+    if (!text) return;
+    // If editing a failed-send: don't append a new user bubble, replace the failed prompt
+    if (lastFailed) {
+      setMessages((m) => {
+        const copy = [...m];
+        for (let i = copy.length - 1; i >= 0; i--) {
+          if (copy[i].role === "user") {
+            copy[i] = { ...copy[i], content: text };
+            break;
+          }
+        }
+        return copy;
+      });
+      setLastFailed(null);
+      setEditing(false);
+      sendMessage(text, { isRetry: true });
+    } else {
+      // Editing the previous successful prompt → behave like a brand new send
+      setEditing(false);
+      sendMessage(text);
+    }
+  };
+
+  const regenerate = async (assistantId: string) => {
+    if (loading) return;
+    const idx = messages.findIndex((m) => m.id === assistantId);
+    if (idx === -1) return;
+    const target = messages[idx];
+    // Find the prompt that produced this answer
+    let prompt = "";
+    if (target.promptId) {
+      prompt = messages.find((m) => m.id === target.promptId)?.content ?? "";
+    }
+    if (!prompt) {
+      // fall back: nearest preceding user message
+      for (let i = idx - 1; i >= 0; i--) {
+        if (messages[i].role === "user") { prompt = messages[i].content; break; }
+      }
+    }
+    if (!prompt) {
+      toast.error("No prompt found to regenerate from");
+      return;
+    }
+    setRegeneratingId(assistantId);
+    setLoading(true);
+    try {
+      const reply = await callApi(prompt);
+      setMessages((m) =>
+        m.map((msg) =>
+          msg.id === assistantId
+            ? { ...msg, content: reply, createdAt: Date.now() }
+            : msg,
+        ),
+      );
+      toast.success("Regenerated answer");
+    } catch (e) {
+      console.error(e);
+      toast.error("Could not regenerate. Please try again!");
+    } finally {
+      setLoading(false);
+      setRegeneratingId(null);
+    }
   };
 
   const exportPdf = () => {
@@ -109,7 +275,9 @@ export function Chat() {
       doc.setFontSize(9);
       const dateStr = new Date().toLocaleString();
       doc.text(`Exported: ${dateStr}`, pageW - margin, 35, { align: "right" });
-      doc.text(`Session: ${sessionId.slice(0, 8)}…`, pageW - margin, 54, { align: "right" });
+      if (pdfOpts.includeSessionId) {
+        doc.text(`Session: ${sessionId.slice(0, 8)}…`, pageW - margin, 54, { align: "right" });
+      }
 
       let y = 100;
       doc.setTextColor(20, 20, 30);
@@ -136,18 +304,19 @@ export function Chat() {
         doc.setFontSize(11);
         doc.setTextColor(...color);
         ensureSpace(18);
-        doc.text(label, margin, y);
+        const headerLine = pdfOpts.includeTimestamps
+          ? `${label}  ·  ${new Date(m.createdAt).toLocaleString()}`
+          : label;
+        doc.text(headerLine, margin, y);
         y += 14;
 
         doc.setFont("helvetica", "normal");
         doc.setFontSize(11);
         doc.setTextColor(35, 35, 45);
-        // Strip markdown for cleaner PDF
-        const plain = m.content
-          .replace(/[*_`>#-]+/g, "")
-          .replace(/\n{2,}/g, "\n\n")
-          .trim();
-        const lines = doc.splitTextToSize(plain, contentW);
+        const text = pdfOpts.keepMarkdown
+          ? m.content
+          : m.content.replace(/[*_`>#]+/g, "").replace(/\n{2,}/g, "\n\n").trim();
+        const lines = doc.splitTextToSize(text, contentW);
         lines.forEach((line: string) => {
           ensureSpace(14);
           doc.text(line, margin, y);
@@ -172,6 +341,7 @@ export function Chat() {
 
       doc.save(`votewise-chat-${Date.now()}.pdf`);
       toast.success("Chat exported as PDF");
+      setPdfOpen(false);
     } catch (e) {
       console.error(e);
       toast.error("Could not export PDF");
@@ -191,18 +361,85 @@ export function Chat() {
         <p className="mt-2 text-muted-foreground">
           Your AI guide to elections and democracy.
         </p>
-        <div className="mt-4 flex justify-center">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={exportPdf}
-            disabled={messages.length <= 1}
-            aria-label="Export chat history as PDF"
-          >
-            <FileDown className="mr-2 h-4 w-4" />
-            Export as PDF
-          </Button>
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          <Dialog open={pdfOpen} onOpenChange={setPdfOpen}>
+            <DialogTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={messages.length <= 1}
+                aria-label="Customize and export chat as PDF"
+              >
+                <FileDown className="mr-2 h-4 w-4" />
+                Export as PDF
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Settings2 className="h-4 w-4" /> Customize PDF
+                </DialogTitle>
+                <DialogDescription>
+                  Choose what to include before exporting your VoteWise transcript.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <ToggleRow
+                  id="opt-session"
+                  label="Include session ID"
+                  hint="Show a short session identifier in the PDF header."
+                  checked={pdfOpts.includeSessionId}
+                  onChange={(v) => setPdfOpts((o) => ({ ...o, includeSessionId: v }))}
+                />
+                <ToggleRow
+                  id="opt-time"
+                  label="Include timestamps"
+                  hint="Add a date/time next to each message."
+                  checked={pdfOpts.includeTimestamps}
+                  onChange={(v) => setPdfOpts((o) => ({ ...o, includeTimestamps: v }))}
+                />
+                <ToggleRow
+                  id="opt-md"
+                  label="Keep markdown formatting"
+                  hint="Preserve characters like **bold** and lists as-is."
+                  checked={pdfOpts.keepMarkdown}
+                  onChange={(v) => setPdfOpts((o) => ({ ...o, keepMarkdown: v }))}
+                />
+              </div>
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setPdfOpen(false)}>Cancel</Button>
+                <Button onClick={exportPdf}>
+                  <FileDown className="mr-2 h-4 w-4" /> Export
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground">
+            <Switch
+              id="copy-notes"
+              checked={copyWithNotes}
+              onCheckedChange={setCopyWithNotes}
+              aria-label="Toggle copying with sources and notes"
+            />
+            <Label htmlFor="copy-notes" className="cursor-pointer text-xs">
+              Copy with sources / notes
+            </Label>
+          </div>
+
+          {messages.length > 1 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={clearHistory}
+              aria-label="Clear saved chat history"
+            >
+              <X className="mr-2 h-4 w-4" />
+              Clear history
+            </Button>
+          )}
         </div>
       </div>
 
@@ -217,11 +454,18 @@ export function Chat() {
         >
           <div className="space-y-4">
             {messages.map((m) => (
-              <MessageBubble key={m.id} message={m} />
+              <MessageBubble
+                key={m.id}
+                message={m}
+                copyWithNotes={copyWithNotes}
+                onRegenerate={m.role === "assistant" && m.id !== "welcome" ? () => regenerate(m.id) : undefined}
+                regenerating={regeneratingId === m.id}
+                disabled={loading}
+              />
             ))}
             {loading && <TypingIndicator />}
-            {lastFailed && !loading && (
-              <div className="flex animate-fade-up justify-center">
+            {lastFailed && !loading && !editing && (
+              <div className="flex animate-fade-up flex-wrap justify-center gap-2">
                 <Button
                   type="button"
                   variant="outline"
@@ -233,6 +477,43 @@ export function Chat() {
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Retry last message
                 </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={startEditLast}
+                  aria-label="Edit last message before resending"
+                >
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Edit & resend
+                </Button>
+              </div>
+            )}
+            {editing && (
+              <div className="animate-fade-up rounded-xl border border-border/60 bg-card p-3 shadow-soft">
+                <div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                  <Pencil className="h-3.5 w-3.5" />
+                  Edit your message
+                </div>
+                <Textarea
+                  value={editDraft}
+                  onChange={(e) => setEditDraft(e.target.value)}
+                  rows={3}
+                  aria-label="Edit your message before resending"
+                  className="text-sm"
+                />
+                <div className="mt-2 flex justify-end gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={submitEdit}
+                    disabled={!editDraft.trim() || loading}
+                  >
+                    <Send className="mr-2 h-3.5 w-3.5" /> Resend
+                  </Button>
+                </div>
               </div>
             )}
           </div>
@@ -290,15 +571,37 @@ export function Chat() {
   );
 }
 
-function MessageBubble({ message }: { message: Message }) {
+function MessageBubble({
+  message,
+  copyWithNotes,
+  onRegenerate,
+  regenerating,
+  disabled,
+}: {
+  message: Message;
+  copyWithNotes?: boolean;
+  onRegenerate?: () => void;
+  regenerating?: boolean;
+  disabled?: boolean;
+}) {
   const isUser = message.role === "user";
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(message.content);
+      let payload = message.content;
+      if (copyWithNotes) {
+        payload =
+          `${message.content}\n\n` +
+          `---\n` +
+          `Sources / Notes:\n` +
+          `- Generated by VoteWise AI assistant on ${new Date(message.createdAt).toLocaleString()}.\n` +
+          `- Educational content — verify with your local election authority.\n` +
+          `- No official sources cited; treat as a starting point for your own research.`;
+      }
+      await navigator.clipboard.writeText(payload);
       setCopied(true);
-      toast.success("Answer copied");
+      toast.success(copyWithNotes ? "Answer + notes copied" : "Answer copied");
       setTimeout(() => setCopied(false), 1500);
     } catch {
       toast.error("Could not copy");
@@ -338,24 +641,56 @@ function MessageBubble({ message }: { message: Message }) {
           )}
         </div>
         {!isUser && (
-          <button
-            type="button"
-            onClick={handleCopy}
-            className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label="Copy answer to clipboard"
-          >
-            {copied ? (
-              <>
-                <Check className="h-3 w-3" /> Copied
-              </>
-            ) : (
-              <>
-                <Copy className="h-3 w-3" /> Copy answer
-              </>
+          <div className="flex flex-wrap items-center gap-1">
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Copy answer to clipboard"
+            >
+              {copied ? (
+                <><Check className="h-3 w-3" /> Copied</>
+              ) : (
+                <><Copy className="h-3 w-3" /> {copyWithNotes ? "Copy + notes" : "Copy answer"}</>
+              )}
+            </button>
+            {onRegenerate && (
+              <button
+                type="button"
+                onClick={onRegenerate}
+                disabled={disabled}
+                className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                aria-label="Regenerate this answer"
+              >
+                <Sparkles className={`h-3 w-3 ${regenerating ? "animate-pulse" : ""}`} />
+                {regenerating ? "Regenerating…" : "Regenerate"}
+              </button>
             )}
-          </button>
+          </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function ToggleRow({
+  id, label, hint, checked, onChange,
+}: {
+  id: string;
+  label: string;
+  hint: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 rounded-md border border-border/60 bg-muted/30 p-3">
+      <div className="space-y-0.5">
+        <Label htmlFor={id} className="cursor-pointer text-sm font-medium">
+          {label}
+        </Label>
+        <p className="text-xs text-muted-foreground">{hint}</p>
+      </div>
+      <Switch id={id} checked={checked} onCheckedChange={onChange} aria-label={label} />
     </div>
   );
 }
