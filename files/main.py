@@ -47,7 +47,7 @@ election security, election administration, voting rights history, and
 comparative global voting systems.
 
 RESPONSE FORMATTING (Markdown only)
-- Simple facts: 2–4 paragraphs, no headers.
+- Simple facts: 1-2 paragraph, no headers. Keep it short
 - How-to: numbered steps with **bold** action verbs.
 - Explanatory: short intro + ## headers + sub-sections.
 - Comparisons: brief explanation + Markdown table.

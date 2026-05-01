@@ -41,7 +41,6 @@ function Index() {
       <Navbar />
       <main>
         <Hero />
-        <Chat />
         <Suspense fallback={<SectionFallback />}>
           <Timeline />
         </Suspense>

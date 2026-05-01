@@ -1,5 +1,6 @@
+import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { Vote, Flag, CheckCircle2, ScrollText } from "lucide-react";
+import { Flag, CheckCircle2, ScrollText } from "lucide-react";
 
 export function Hero() {
   const scrollTo = (id: string) => {
@@ -13,7 +14,8 @@ export function Hero() {
     >
       {/* Animated civic icons */}
       <div aria-hidden className="pointer-events-none absolute inset-0 opacity-20">
-        <Vote className="absolute left-[8%] top-[20%] h-16 w-16 animate-float-slow" />
+        <img src="/favicon.ico" alt="" className="absolute left-[8%] top-[20%] h-16 w-16 animate-float-slow" />
+
         <Flag
           className="absolute right-[12%] top-[30%] h-14 w-14 animate-float-slow"
           style={{ animationDelay: "1.5s" }}
@@ -43,14 +45,15 @@ export function Hero() {
           democracy works — and get clear, friendly answers powered by AI.
         </p>
         <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-          <Button
-            size="lg"
-            variant="hero"
-            onClick={() => scrollTo("chat")}
-            aria-label="Start learning by scrolling to chat"
-          >
-            Start Learning
-          </Button>
+          <Link to="/chat">
+            <Button
+              size="lg"
+              variant="hero"
+              aria-label="Start learning in the chat assistant"
+            >
+              Start Learning
+            </Button>
+          </Link>
           <Button
             size="lg"
             variant="outline"

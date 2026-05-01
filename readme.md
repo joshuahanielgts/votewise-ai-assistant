@@ -35,28 +35,22 @@ VoteWise is an interactive, AI-powered civic education assistant that helps user
 
 ```
 votewise/
-├── frontend/                  # React + Vite (Lovable-generated)
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── Navbar.tsx
-│   │   │   ├── Hero.tsx
-│   │   │   ├── ChatInterface.tsx   ← main chat component
-│   │   │   ├── QuickPills.tsx
-│   │   │   ├── Timeline.tsx        ← lazy loaded
-│   │   │   └── FAQ.tsx             ← lazy loaded
-│   │   ├── hooks/
-│   │   │   └── useChat.ts          ← API call logic
-│   │   ├── lib/
-│   │   │   └── api.ts              ← fetch wrapper with error handling
-│   │   ├── App.tsx
-│   │   └── main.tsx
-│   ├── public/
-│   │   └── favicon.svg
-│   ├── .env.example
-│   ├── nginx.conf
-│   ├── Dockerfile
-│   └── package.json
-│
+├── src/                       # React + Vite Frontend
+│   ├── components/
+│   │   ├── Navbar.tsx
+│   │   ├── Hero.tsx
+│   │   ├── ChatInterface.tsx   ← main chat component
+│   │   ├── QuickPills.tsx
+│   │   ├── Timeline.tsx        ← lazy loaded
+│   │   └── FAQ.tsx             ← lazy loaded
+│   ├── hooks/
+│   │   └── useChat.ts          ← API call logic
+│   ├── lib/
+│   │   └── api.ts              ← fetch wrapper with error handling
+│   ├── App.tsx
+│   └── main.tsx
+├── public/
+│   └── favicon.ico
 ├── backend/                   # FastAPI (Python)
 │   ├── main.py                ← API entrypoint
 │   ├── routes/
@@ -68,6 +62,10 @@ votewise/
 │   ├── requirements.txt
 │   └── Dockerfile
 │
+├── .env.example               ← Frontend + Backend environment templates
+├── nginx.conf
+├── Dockerfile                 ← Frontend Dockerfile
+├── package.json
 ├── cloudbuild.yaml            ← CI/CD pipeline
 ├── GOOGLE_CLOUD_DEPLOY.md     ← Step-by-step deployment guide
 ├── ANTIGRAVITY_PROMPT.md      ← System prompt + backend spec
@@ -113,9 +111,7 @@ Health check: `GET http://localhost:8000/health`
 ### Frontend
 
 ```bash
-cd frontend
-
-# Install dependencies
+# Install dependencies (if not already done)
 npm install
 
 # Set environment variables

@@ -2,36 +2,67 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 
-    <title>VoteWise — Understand Your Vote. Shape Your Future.</title>
-    <meta name="description"
-      content="VoteWise is an AI-powered election education assistant. Ask anything about voter registration, election timelines, the Electoral College, ballot types, and how democracy works — in plain, friendly language." />
-    <meta name="keywords"
-      content="VoteWise, election education, voter registration, how to vote, Electoral College, election timeline, civic education, AI assistant, democracy, ballot, voting rights, Gemini AI" />
+    <!-- Primary Meta Tags -->
+    <title>VoteWise — Your AI Guide to Indian Elections & Democracy</title>
+    <meta name="title" content="VoteWise — Your AI Guide to Indian Elections & Democracy" />
+    <meta name="description" content="VoteWise is an AI-powered assistant dedicated to helping Indian citizens understand voter registration, Lok Sabha elections, ECI guidelines, and the democratic process in simple language." />
+    <meta name="keywords" content="VoteWise India, ECI, voter registration India, Lok Sabha elections, EPIC card, how to vote India, EVM VVPAT, Indian democracy AI" />
     <meta name="author" content="VoteWise" />
     <meta name="robots" content="index, follow" />
-    <link rel="canonical" href="https://votewise.app" />
+    <link rel="canonical" href="https://votewise.in" />
 
+    <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://votewise.app" />
-    <meta property="og:title" content="VoteWise — Understand Your Vote. Shape Your Future." />
-    <meta property="og:description"
-      content="AI-powered civic education assistant. Get clear, non-partisan answers about elections, voter registration, and how democracy works." />
-    <meta property="og:image" content="public/favicon.svg" />
+    <meta property="og:url" content="https://votewise.in" />
+    <meta property="og:title" content="VoteWise — Empowering Indian Voters with AI" />
+    <meta property="og:description" content="Get instant, non-partisan answers about voter registration, polling booth procedures, and your voting rights in India." />
+    <meta property="og:image" content="https://votewise.in/favicon.ico" />
     <meta property="og:site_name" content="VoteWise" />
 
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:url" content="https://votewise.app" />
-    <meta name="twitter:title" content="VoteWise — Understand Your Vote. Shape Your Future." />
-    <meta name="twitter:description"
-      content="AI-powered civic education assistant. Get clear, non-partisan answers about elections, voter registration, and how democracy works." />
-    <meta name="twitter:image" content="public/favicon.svg" />
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://votewise.in" />
+    <meta property="twitter:title" content="VoteWise — AI Civic Education for India" />
+    <meta property="twitter:description" content="Clear, friendly, and expert guidance on the Indian election process. Powered by AI." />
+    <meta property="twitter:image" content="https://votewise.in/favicon.ico" />
 
-    <link rel="icon" type="image/svg+xml" href="public/favicon.svg" />
-    <link rel="apple-touch-icon" href="public/favicon.svg" />
+    <!--
+      FAVICON — two tags are both required:
+
+      1. rel="icon" svg  → tells modern browsers (Chrome 80+, Firefox, Edge, Safari 9+)
+                           to use your SVG. This is the icon that actually shows in the tab.
+
+      2. rel="icon" data:, → This is the key fix for the favicon.ico 404.
+                             Browsers automatically fire a GET /favicon.ico as a
+                             legacy fallback regardless of any other icon link.
+                             Setting a second <link rel="icon"> with href="data:,"
+                             overrides that legacy slot with an empty inline resource,
+                             so the browser never makes the network request at all.
+                             The SVG tag above still wins for the visible tab icon.
+    -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
+    <link rel="icon" href="data:," />
+    <link rel="apple-touch-icon" href="/favicon.ico" />
     <meta name="theme-color" content="#1a365d" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+    <!-- Prevent FOUC — matches your dark theme bg -->
+    <style>
+      body {
+        margin: 0;
+        background-color: #030712;
+        color: #f9fafb;
+        font-family: 'Outfit', sans-serif;
+      }
+      #root { min-height: 100vh; }
+    </style>
   </head>
 
   <body>
