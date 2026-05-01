@@ -1,0 +1,118 @@
+# cloudbuild.yaml
+# Auto-deploys VoteWise on every push to main
+# Pipeline: test → build → push → deploy (backend + frontend in parallel where possible)
+#
+# BEFORE USING: update _BACKEND_URL substitution below with your actual backend Cloud Run URL
+
+substitutions:
+  _REGION: us-central1
+  _REPO: us-central1-docker.pkg.dev/$PROJECT_ID/votewise-repo
+  _BACKEND_URL: https://votewise-backend-xxxxxxxxxx-uc.a.run.app  # <-- UPDATE THIS after first deploy
+
+steps:
+
+  # ── Step 1: Run backend tests before building anything ─────────────────────
+  - name: python:3.11-slim
+    id: test-backend
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        cd backend
+        pip install -r requirements.txt -q
+        pytest tests/ -v --tb=short
+
+  # ── Step 2: Build backend Docker image ─────────────────────────────────────
+  - name: gcr.io/cloud-builders/docker
+    id: build-backend
+    waitFor: [test-backend]
+    args:
+      - build
+      - -t
+      - $_REPO/backend:$COMMIT_SHA
+      - -t
+      - $_REPO/backend:latest
+      - ./backend
+
+  # ── Step 3: Push backend image to Artifact Registry ────────────────────────
+  - name: gcr.io/cloud-builders/docker
+    id: push-backend
+    waitFor: [build-backend]
+    args:
+      - push
+      - --all-tags
+      - $_REPO/backend
+
+  # ── Step 4: Deploy backend to Cloud Run ────────────────────────────────────
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: deploy-backend
+    waitFor: [push-backend]
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - votewise-backend
+      - --image=$_REPO/backend:$COMMIT_SHA
+      - --region=$_REGION
+      - --platform=managed
+      - --allow-unauthenticated
+      - --port=8080
+      - --memory=512Mi
+      - --cpu=1
+      - --min-instances=0
+      - --max-instances=10
+      - --set-secrets=GEMINI_API_KEY=GEMINI_API_KEY:latest
+      - --set-env-vars=ANTIGRAVITY_ENDPOINT=https://api.antigravity.ai/v1/chat/completions,GEMINI_MODEL=gemini-2.0-flash
+
+  # ── Step 5: Build frontend image (runs in parallel with backend push) ───────
+  - name: gcr.io/cloud-builders/docker
+    id: build-frontend
+    waitFor: [test-backend]
+    args:
+      - build
+      - --build-arg
+      - VITE_API_BASE_URL=$_BACKEND_URL
+      - -t
+      - $_REPO/frontend:$COMMIT_SHA
+      - -t
+      - $_REPO/frontend:latest
+      - .
+
+  # ── Step 6: Push frontend image ────────────────────────────────────────────
+  - name: gcr.io/cloud-builders/docker
+    id: push-frontend
+    waitFor: [build-frontend]
+    args:
+      - push
+      - --all-tags
+      - $_REPO/frontend
+
+  # ── Step 7: Deploy frontend to Cloud Run ───────────────────────────────────
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: deploy-frontend
+    waitFor: [push-frontend]
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - votewise-frontend
+      - --image=$_REPO/frontend:$COMMIT_SHA
+      - --region=$_REGION
+      - --platform=managed
+      - --allow-unauthenticated
+      - --port=8080
+      - --memory=256Mi
+      - --cpu=1
+      - --min-instances=0
+      - --max-instances=5
+
+# Store built images in Artifact Registry
+images:
+  - $_REPO/backend:$COMMIT_SHA
+  - $_REPO/backend:latest
+  - $_REPO/frontend:$COMMIT_SHA
+  - $_REPO/frontend:latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
