@@ -12,14 +12,12 @@ ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 
 RUN npm run build
 
-# Install express just for serving static files
-RUN npm install express --save
+RUN npm install @hono/node-server --save
 
-# Write a simple static file server
-RUN echo 'const express=require("express");const path=require("path");const app=express();const PORT=process.env.PORT||8080;app.use(express.static(path.join(__dirname,"dist/client")));app.get("*",(req,res)=>res.sendFile(path.join(__dirname,"dist/client/index.html")));app.listen(PORT,()=>console.log("Server running on port "+PORT));' > server.js
+RUN printf 'import { serve } from "@hono/node-server";\nimport { serveStatic } from "@hono/node-server/serve-static";\nimport handler from "./dist/server/index.js";\nconst port = parseInt(process.env.PORT || "8080");\nserve({ fetch: handler.fetch, port, hostname: "0.0.0.0" }, () => console.log("Listening on port " + port));\n' > node-server.mjs
 
 EXPOSE 8080
 ENV PORT=8080
 ENV NODE_ENV=production
 
-CMD ["node", "server.js"]
+CMD ["node", "node-server.mjs"]
