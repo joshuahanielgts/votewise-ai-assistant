@@ -19,7 +19,7 @@ RUN npm run build && echo "=== dist contents ===" && ls dist/
 # ── Nginx stage ───────────────────────────────────────────────────────────────
 FROM nginx:alpine
 
-COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --from=builder /app/dist/client /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 8080
