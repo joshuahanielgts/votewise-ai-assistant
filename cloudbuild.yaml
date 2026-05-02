@@ -7,7 +7,7 @@
 substitutions:
   _REGION: us-central1
   _REPO: us-central1-docker.pkg.dev/$PROJECT_ID/votewise-repo
-  _BACKEND_URL: https://votewise-backend-xxxxxxxxxx-uc.a.run.app  # <-- UPDATE THIS after first deploy
+  _BACKEND_URL: https://votewise-backend-666959845001.us-central1.run.app
 
 steps:
 
