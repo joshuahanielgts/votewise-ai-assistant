@@ -22,6 +22,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Analytics } from "@/lib/analytics";
+import { saveMessage, loadSessionHistory } from "@/lib/firebase";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Role = "user" | "assistant";
@@ -111,6 +113,20 @@ export function Chat() {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const commandPaletteRef = useRef<HTMLDivElement>(null);
 
+    // Load chat history from Firestore on mount
+    useEffect(() => {
+        loadSessionHistory(sessionId).then((history) => {
+            if (history.length > 0) {
+                const restored = history.map((msg) => ({
+                    id: msg.id ?? crypto.randomUUID(),
+                    role: msg.role,
+                    content: msg.content,
+                }));
+                setMessages([WELCOME_MESSAGE, ...restored]);
+            }
+        });
+    }, [sessionId]);
+
     // Auto-resize logic
     const adjustHeight = useCallback((reset?: boolean) => {
         const textarea = textareaRef.current;
@@ -160,12 +176,21 @@ export function Chat() {
         setLoading(true);
         adjustHeight(true);
 
+        // Track & persist user message
+        Analytics.chatMessageSent(text.length);
+        saveMessage(sessionId, "user", text);
+
         try {
             const reply = await callApi(text);
             const aiMsg: Message = { id: crypto.randomUUID(), role: "assistant", content: reply };
             setMessages(prev => [...prev, aiMsg]);
+
+            // Track & persist AI response
+            Analytics.aiResponseReceived(reply.length, true);
+            saveMessage(sessionId, "assistant", reply);
         } catch (err: any) {
             toast.error("Error", { description: err.message });
+            Analytics.apiError(err.message || "Unknown error");
         } finally {
             setLoading(false);
             setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), SCROLL_DELAY_MS);

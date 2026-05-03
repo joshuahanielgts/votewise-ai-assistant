@@ -63,6 +63,19 @@
       }
       #root { min-height: 100vh; }
     </style>
+
+    <!-- Google Analytics 4 — Free, no usage limits -->
+    <!-- Replace G-XXXXXXXXXX with your actual Measurement ID from GA4 console -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-XXXXXXXXXX', {
+        page_title: 'VoteWise — Indian Election Education',
+        send_page_view: true,
+      });
+    </script>
   </head>
 
   <body>

@@ -13,10 +13,25 @@
 
 VoteWise is an interactive, AI-powered civic education assistant that helps users understand the democratic election process. Ask anything about voter registration, election timelines, the Electoral College, ballot types, or voting rights — and get clear, non-partisan, markdown-formatted answers powered by Gemini 2.0 Flash.
 
-**Live Demo:** `https://votewise-frontend-xxxxxxxxxx-uc.a.run.app`  
-**API Base:** `https://votewise-backend-xxxxxxxxxx-uc.a.run.app`
+**Live Demo:** `https://votewise-ai-666959845001.us-central1.run.app`  
+**API Health:** `https://votewise-ai-666959845001.us-central1.run.app/health`
 
 ---
+
+## Google Cloud Services Used
+
+| Service | Purpose | Pricing |
+|---------|---------|---------|
+| Cloud Run | Backend API + Frontend hosting | Free tier |
+| Artifact Registry | Docker image storage | Free tier |
+| Secret Manager | API key management | Free tier |
+| Cloud Build | CI/CD pipeline | Free tier |
+| Cloud Logging | Structured request logs | Free tier |
+| Firebase Firestore | Chat session persistence | Free Spark plan |
+| Google Analytics 4 | Usage analytics & tracking | Always free |
+| Gemini 2.5 Flash | AI responses | Per plan |
+
+
 
 ## Features
 

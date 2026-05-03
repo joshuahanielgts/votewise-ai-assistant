@@ -17,7 +17,6 @@
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.25.5",
     "@hono/node-server": "^1.13.7",
-    "hono": "^4.6.14",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
@@ -55,7 +54,9 @@
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
     "embla-carousel-react": "^8.6.0",
+    "firebase": "^12.12.1",
     "framer-motion": "^12.38.0",
+    "hono": "^4.6.14",
     "input-otp": "^1.4.2",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.575.0",

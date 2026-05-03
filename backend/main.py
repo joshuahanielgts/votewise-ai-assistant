@@ -2,6 +2,7 @@ import os
 import json
 import logging
 import sys
+import time
 from contextlib import asynccontextmanager
 
 import httpx
@@ -11,6 +12,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request as StarletteRequest
 
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -18,20 +21,53 @@ from slowapi.errors import RateLimitExceeded
 
 from models.schemas import ChatRequest, ChatResponse
 
-# ── Structured Logging ────────────────────────────────────────────────────────
+# ── Google Cloud Structured Logging ───────────────────────────────────────────
 class CloudRunFormatter(logging.Formatter):
-    def format(self, record):
+    """
+    Formats logs as JSON for Google Cloud Logging structured log ingestion.
+    Cloud Run captures stdout and sends to Cloud Logging automatically.
+    Severity levels map to Cloud Logging severity labels.
+    """
+    SEVERITY_MAP = {
+        "DEBUG": "DEBUG",
+        "INFO": "INFO",
+        "WARNING": "WARNING",
+        "ERROR": "ERROR",
+        "CRITICAL": "CRITICAL",
+    }
+
+    def format(self, record: logging.LogRecord) -> str:
         log_entry = {
-            "severity": record.levelname,
+            "severity": self.SEVERITY_MAP.get(record.levelname, "DEFAULT"),
             "message": record.getMessage(),
             "component": record.name,
+            "time": self.formatTime(record, self.datefmt),
+            "logging.googleapis.com/sourceLocation": {
+                "file": record.pathname,
+                "line": record.lineno,
+                "function": record.funcName,
+            },
         }
-        return json.dumps(log_entry)
+        if record.exc_info:
+            log_entry["exception"] = self.formatException(record.exc_info)
+        if hasattr(record, "session_id"):
+            log_entry["session_id"] = record.session_id
+        if hasattr(record, "http_request"):
+            log_entry["httpRequest"] = record.http_request
+        return json.dumps(log_entry, ensure_ascii=False)
 
-handler = logging.StreamHandler(sys.stdout)
-handler.setFormatter(CloudRunFormatter())
-logging.basicConfig(level=logging.INFO, handlers=[handler], force=True)
-logger = logging.getLogger("votewise")
+
+def setup_logging() -> None:
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(CloudRunFormatter())
+    root_logger = logging.getLogger()
+    root_logger.handlers.clear()
+    root_logger.addHandler(handler)
+    root_logger.setLevel(logging.INFO)
+
+
+setup_logging()
+logger = logging.getLogger(__name__)
 
 # ── Load Config ───────────────────────────────────────────────────────────────
 load_dotenv()
@@ -94,6 +130,30 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── Cloud Logging Middleware ─────────────────────────────────────────────────
+class CloudLoggingMiddleware(BaseHTTPMiddleware):
+    """Logs every HTTP request in Google Cloud Logging httpRequest format."""
+    async def dispatch(self, request: StarletteRequest, call_next):
+        start = time.perf_counter()
+        response = await call_next(request)
+        latency_ms = (time.perf_counter() - start) * 1000
+        logger.info(
+            f"{request.method} {request.url.path} {response.status_code}",
+            extra={
+                "http_request": {
+                    "requestMethod": request.method,
+                    "requestUrl": str(request.url),
+                    "status": response.status_code,
+                    "userAgent": request.headers.get("user-agent", ""),
+                    "remoteIp": request.client.host if request.client else "",
+                    "latency": f"{latency_ms:.2f}ms",
+                }
+            }
+        )
+        return response
+
+app.add_middleware(CloudLoggingMiddleware)
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
