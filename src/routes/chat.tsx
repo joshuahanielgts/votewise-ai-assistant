@@ -18,9 +18,9 @@ export const Route = createFileRoute("/chat")({
 
 function ChatPage() {
   return (
-    <div className="flex flex-col min-h-screen bg-background overflow-hidden">
+    <div className="fixed inset-0 z-40 flex flex-col bg-background overflow-hidden">
       <Navbar />
-      <main className="flex-1 flex flex-col w-full relative">
+      <main className="flex-1 flex flex-col w-full relative overflow-hidden">
         <Chat />
       </main>
       <Footer />

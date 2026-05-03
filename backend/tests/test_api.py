@@ -6,6 +6,8 @@ import sys, os
 # Add parent directory to path to allow importing main
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
+# Mock environment variables for testing
+os.environ["GEMINI_API_KEY"] = "AIzaSy_test_key"
 from main import app
 
 client = TestClient(app)
@@ -39,7 +41,8 @@ def test_chat_null_history_coerced():
 @patch("main.http_client")
 def test_chat_success(mock_client):
     # Mock the singleton httpx client
-    mock_response = AsyncMock()
+    from unittest.mock import MagicMock
+    mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {
         "choices": [{"message": {"content": "Here is your answer."}}]
